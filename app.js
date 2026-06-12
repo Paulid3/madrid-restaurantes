@@ -4,7 +4,7 @@ const state = {
   filters: { cuisine: '', district: '', price: '', terrace: false, quality: true, openNow: false }
 };
 
-// --- Mapa ---
+// --- Mapa (se pinta YA, antes de cargar datos) ---
 const map = L.map('map').setView([40.4168, -3.7038], 13);
 L.tileLayer('[%7Bs%7D.tile.openstreetmap.org](https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png)', {
   attribution: '© OpenStreetMap',
@@ -14,8 +14,13 @@ L.tileLayer('[%7Bs%7D.tile.openstreetmap.org](https://{s}.tile.openstreetmap.org
 const cluster = L.markerClusterGroup({ maxClusterRadius: 50 });
 map.addLayer(cluster);
 
-// --- Carga desde Overpass ---
-const OVERPASS_URL = '[overpass-api.de](https://overpass-api.de/api/interpreter)';
+// --- Servidores Overpass (probamos varios por si uno cae) ---
+const OVERPASS_SERVERS = [
+  '[overpass-api.de](https://overpass-api.de/api/interpreter)',
+  '[overpass.kumi.systems](https://overpass.kumi.systems/api/interpreter)',
+  '[overpass.private.coffee](https://overpass.private.coffee/api/interpreter)'
+];
+
 const MADRID_QUERY = `
 [out:json][timeout:60];
 area["name"="Madrid"]["admin_level"="8"]->.madrid;
@@ -28,33 +33,44 @@ out center tags;
 
 async function loadRestaurants() {
   setStatus('Cargando restaurantes de Madrid…');
+
+  // Caché de 24h
   const cached = localStorage.getItem('madrid-restaurants');
   const cachedTime = localStorage.getItem('madrid-restaurants-time');
   const ONE_DAY = 24 * 60 * 60 * 1000;
-
   if (cached && cachedTime && Date.now() - parseInt(cachedTime) < ONE_DAY) {
-    state.restaurants = JSON.parse(cached);
-    setStatus(`Cargado desde caché (${new Date(parseInt(cachedTime)).toLocaleString('es-ES')})`);
-    render();
-    return;
+    try {
+      state.restaurants = JSON.parse(cached);
+      setStatus(`Caché del ${new Date(parseInt(cachedTime)).toLocaleString('es-ES')}`);
+      render();
+      return;
+    } catch (e) { /* sigue al fetch */ }
   }
 
-  try {
-    const res = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      body: 'data=' + encodeURIComponent(MADRID_QUERY),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-    const data = await res.json();
-    state.restaurants = data.elements.map(parseElement).filter(Boolean);
-    localStorage.setItem('madrid-restaurants', JSON.stringify(state.restaurants));
-    localStorage.setItem('madrid-restaurants-time', Date.now().toString());
-    setStatus(`Actualizado ahora (${state.restaurants.length} restaurantes)`);
-    render();
-  } catch (err) {
-    setStatus('Error cargando datos. Reintenta en unos segundos.');
-    console.error(err);
+  // Intenta cada servidor hasta que uno funcione
+  for (const url of OVERPASS_SERVERS) {
+    try {
+      setStatus(`Conectando a ${new URL(url).hostname}…`);
+      const res = await fetch(url, {
+        method: 'POST',
+        body: 'data=' + encodeURIComponent(MADRID_QUERY),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      state.restaurants = (data.elements || []).map(parseElement).filter(Boolean);
+      try {
+        localStorage.setItem('madrid-restaurants', JSON.stringify(state.restaurants));
+        localStorage.setItem('madrid-restaurants-time', Date.now().toString());
+      } catch (e) { /* localStorage lleno, da igual */ }
+      setStatus(`✅ ${state.restaurants.length} restaurantes cargados`);
+      render();
+      return;
+    } catch (err) {
+      console.warn(`Falló ${url}:`, err);
+    }
   }
+  setStatus('❌ No se pudo conectar a Overpass. Reintenta en 1 minuto.');
 }
 
 function parseElement(el) {
@@ -77,14 +93,11 @@ function parseElement(el) {
     priceRange: parsePriceRange(t),
     terrace: t.outdoor_seating === 'yes',
     takeaway: t.takeaway === 'yes',
-    delivery: t.delivery === 'yes',
-    wheelchair: t.wheelchair === 'yes',
-    rawTags: t
+    delivery: t.delivery === 'yes'
   };
 }
 
 function parsePriceRange(t) {
-  // OSM no tiene un campo de precio estándar y completo. Aproximación:
   if (t.price_range) {
     const n = parseInt(t.price_range);
     if (!isNaN(n)) return Math.min(4, Math.max(1, n));
@@ -114,7 +127,7 @@ function matchesCuisine(r, value) {
 }
 
 function isOpenNow(r) {
-  if (!r.hours) return false;
+  if (!r.hours || typeof opening_hours === 'undefined') return false;
   try {
     const oh = new opening_hours(r.hours, { address: { country_code: 'es' } });
     return oh.getState(new Date());
@@ -173,28 +186,35 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
-function setStatus(msg) { document.getElementById('status').textContent = msg; }
+function setStatus(msg) {
+  const el = document.getElementById('status');
+  if (el) el.textContent = msg;
+}
 
 // --- Eventos UI ---
-document.getElementById('filter-cuisine').addEventListener('change', e => { state.filters.cuisine = e.target.value; render(); });
-document.getElementById('filter-district').addEventListener('change', e => { state.filters.district = e.target.value; render(); });
-document.getElementById('filter-terrace').addEventListener('change', e => { state.filters.terrace = e.target.checked; render(); });
-document.getElementById('filter-quality').addEventListener('change', e => { state.filters.quality = e.target.checked; render(); });
-document.getElementById('filter-open-now').addEventListener('change', e => { state.filters.openNow = e.target.checked; render(); });
+function bindUI() {
+  document.getElementById('filter-cuisine').addEventListener('change', e => { state.filters.cuisine = e.target.value; render(); });
+  document.getElementById('filter-district').addEventListener('change', e => { state.filters.district = e.target.value; render(); });
+  document.getElementById('filter-terrace').addEventListener('change', e => { state.filters.terrace = e.target.checked; render(); });
+  document.getElementById('filter-quality').addEventListener('change', e => { state.filters.quality = e.target.checked; render(); });
+  document.getElementById('filter-open-now').addEventListener('change', e => { state.filters.openNow = e.target.checked; render(); });
 
-document.querySelectorAll('#filter-price button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#filter-price button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.filters.price = btn.dataset.value;
-    render();
+  document.querySelectorAll('#filter-price button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#filter-price button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.filters.price = btn.dataset.value;
+      render();
+    });
   });
-});
 
-document.getElementById('reload').addEventListener('click', () => {
-  localStorage.removeItem('madrid-restaurants');
-  localStorage.removeItem('madrid-restaurants-time');
-  loadRestaurants();
-});
+  document.getElementById('reload').addEventListener('click', () => {
+    localStorage.removeItem('madrid-restaurants');
+    localStorage.removeItem('madrid-restaurants-time');
+    loadRestaurants();
+  });
+}
 
+// Arranque
+bindUI();
 loadRestaurants();
