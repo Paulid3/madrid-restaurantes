@@ -1,98 +1,88 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dónde cenar en Madrid</title>
-  <link rel="stylesheet" href="[unpkg.com](https://unpkg.com/leaflet@1.9.4/dist/leaflet.css)" />
-  <link rel="stylesheet" href="[unpkg.com](https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css)" />
-  <link rel="stylesheet" href="[unpkg.com](https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css)" />
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cenar en Madrid</title>
+<link rel="stylesheet" href="[unpkg.com](https://unpkg.com/leaflet@1.9.4/dist/leaflet.css)">
+<link rel="stylesheet" href="[unpkg.com](https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css)">
+<link rel="stylesheet" href="[unpkg.com](https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css)">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <aside id="sidebar">
-    <h1>🍽️ Cenar en Madrid</h1>
-    <p class="subtitle">Restaurantes desde OpenStreetMap, actualizados en vivo.</p>
+<aside id="sidebar">
+<h1>🍽️ Cenar en Madrid</h1>
+<p class="subtitle">Datos en vivo de OpenStreetMap</p>
 
-    <div class="filter">
-      <label>Tipo de cocina</label>
-      <select id="filter-cuisine">
-        <option value="">Todas</option>
-        <option value="spanish">Española</option>
-        <option value="italian">Italiana</option>
-        <option value="japanese">Japonesa</option>
-        <option value="asian">Asiática</option>
-        <option value="mexican">Mexicana</option>
-        <option value="indian">India</option>
-        <option value="mediterranean">Mediterránea</option>
-        <option value="vegetarian">Vegetariana / Vegana</option>
-        <option value="seafood">Marisco / Pescado</option>
-        <option value="burger">Hamburguesas</option>
-        <option value="pizza">Pizza</option>
-        <option value="tapas">Tapas</option>
-      </select>
-    </div>
+<div class="filter">
+<label>Tipo de cocina</label>
+<select id="filter-cuisine">
+<option value="">Todas</option>
+<option value="spanish">Española</option>
+<option value="italian">Italiana</option>
+<option value="japanese">Japonesa</option>
+<option value="asian">Asiática</option>
+<option value="mexican">Mexicana</option>
+<option value="indian">India</option>
+<option value="mediterranean">Mediterránea</option>
+<option value="vegetarian">Vegetariana / Vegana</option>
+<option value="seafood">Marisco / Pescado</option>
+<option value="burger">Hamburguesas</option>
+<option value="pizza">Pizza</option>
+<option value="tapas">Tapas</option>
+</select>
+</div>
 
-    <div class="filter">
-      <label>Barrio / distrito</label>
-      <select id="filter-district">
-        <option value="">Todos</option>
-        <option value="Centro">Centro</option>
-        <option value="Chamberí">Chamberí</option>
-        <option value="Salamanca">Salamanca</option>
-        <option value="Chamartín">Chamartín</option>
-        <option value="Retiro">Retiro</option>
-        <option value="Arganzuela">Arganzuela</option>
-        <option value="Moncloa-Aravaca">Moncloa-Aravaca</option>
-        <option value="Tetuán">Tetuán</option>
-        <option value="Latina">Latina</option>
-        <option value="Carabanchel">Carabanchel</option>
-      </select>
-    </div>
+<div class="filter">
+<label>Distrito</label>
+<select id="filter-district">
+<option value="">Todos</option>
+<option value="Centro">Centro</option>
+<option value="Chamberí">Chamberí</option>
+<option value="Salamanca">Salamanca</option>
+<option value="Chamartín">Chamartín</option>
+<option value="Retiro">Retiro</option>
+<option value="Arganzuela">Arganzuela</option>
+<option value="Moncloa">Moncloa-Aravaca</option>
+<option value="Tetuán">Tetuán</option>
+<option value="Latina">Latina</option>
+</select>
+</div>
 
-    <div class="filter">
-      <label>Rango de precio</label>
-      <div class="chips" id="filter-price">
-        <button data-value="">Todos</button>
-        <button data-value="1">€</button>
-        <button data-value="2">€€</button>
-        <button data-value="3">€€€</button>
-        <button data-value="4">€€€€</button>
-      </div>
-    </div>
+<div class="filter">
+<label>Precio</label>
+<div class="chips" id="filter-price">
+<button data-value="" class="active">Todos</button>
+<button data-value="1">€</button>
+<button data-value="2">€€</button>
+<button data-value="3">€€€</button>
+<button data-value="4">€€€€</button>
+</div>
+</div>
 
-    <div class="filter">
-      <label class="checkbox">
-        <input type="checkbox" id="filter-terrace" />
-        <span>Solo con terraza 🌿</span>
-      </label>
-    </div>
+<div class="filter">
+<label class="checkbox">
+<input type="checkbox" id="filter-terrace">
+<span>Solo con terraza 🌿</span>
+</label>
+</div>
 
-    <div class="filter">
-      <label class="checkbox">
-        <input type="checkbox" id="filter-quality" checked />
-        <span>Solo "de calidad" (web + teléfono + horario)</span>
-      </label>
-    </div>
+<div class="filter">
+<label class="checkbox">
+<input type="checkbox" id="filter-quality" checked>
+<span>Solo con web, teléfono y horario</span>
+</label>
+</div>
 
-    <div class="filter">
-      <label class="checkbox">
-        <input type="checkbox" id="filter-open-now" />
-        <span>Abierto ahora</span>
-      </label>
-    </div>
+<button id="reload" class="reload-btn">↻ Recargar datos</button>
+<div id="status" class="status">Iniciando…</div>
+<div id="count" class="count"></div>
+</aside>
 
-    <button id="reload" class="reload-btn">↻ Recargar datos</button>
+<main id="map"></main>
 
-    <div id="status" class="status"></div>
-    <div id="count" class="count"></div>
-  </aside>
-
-  <main id="map"></main>
-
-  <script src="[unpkg.com](https://unpkg.com/leaflet@1.9.4/dist/leaflet.js)"></script>
-  <script src="[unpkg.com](https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js)"></script>
-  <script src="[unpkg.com](https://unpkg.com/opening_hours@3.8.0/build/opening_hours.min.js)"></script>
-  <script src="app.js"></script>
+<script src="[unpkg.com](https://unpkg.com/leaflet@1.9.4/dist/leaflet.js)"></script>
+<script src="[unpkg.com](https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js)"></script>
+<script src="app.js"></script>
 </body>
 </html>
